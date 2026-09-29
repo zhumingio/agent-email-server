@@ -39,6 +39,12 @@ export default function Login() {
     setConnecting(true);
     setError('');
     setProbeResult(null);
+    // 必须带协议，否则拼出的请求地址无效（导致 /api 返回非 JSON → accounts 崩溃）
+    if (!/^https?:\/\//i.test(server)) {
+      setConnecting(false);
+      setProbeResult({ ok: false, msg: '请填写完整地址（含协议和端口），例如 https://192.168.200.5:22345' });
+      return null;
+    }
     try {
       api.setServerBase(server);
       const info = await api.appInfo();
