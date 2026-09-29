@@ -25,6 +25,7 @@ function detectPlatform(): string {
 export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [probeResult, setProbeResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [connecting, setConnecting] = useState(false);
   const setAuthed = useApp((s) => s.setAuthed);
   const [form] = Form.useForm();
@@ -37,11 +38,15 @@ export default function Login() {
   const checkServer = async (server: string) => {
     setConnecting(true);
     setError('');
+    setProbeResult(null);
     try {
       api.setServerBase(server);
       const info = await api.appInfo();
+      setProbeResult({ ok: true, msg: `连接成功：zmail v${info.version}（${new Date(info.serverTime).toLocaleString() ?? ''}）` });
+      setError('');
       return info;
     } catch (e: any) {
+      setProbeResult({ ok: false, msg: `无法连接服务器：${api.errMsg(e)}` });
       setError(`无法连接服务器：${api.errMsg(e)}`);
       return null;
     } finally {
@@ -52,7 +57,7 @@ export default function Login() {
   const onFinish = async (values: { server?: string; token: string }) => {
     if (values.server) {
       const info = await checkServer(values.server);
-      if (!info) return;
+      if (!info) return; // 失败已在顶部提示，阻止登录
     }
     setLoading(true);
     setError('');
@@ -86,7 +91,16 @@ export default function Login() {
           </Typography.Title>
           <Typography.Text type="secondary">Web / Windows / Android 共用同一套账户</Typography.Text>
         </div>
-        {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />}
+        {probeResult && (
+          <Alert
+            type={probeResult.ok ? 'success' : 'error'}
+            message={probeResult.ok ? '服务器可达' : '连接失败'}
+            description={probeResult.msg}
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        )}
+        {error && !probeResult && <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />}
         <Form form={form} onFinish={onFinish} layout="vertical" initialValues={{ token: '' }}>
           <Form.Item
             name="server"
