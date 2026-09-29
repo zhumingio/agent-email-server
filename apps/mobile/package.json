@@ -1,0 +1,23 @@
+{
+  "name": "@zmail/mobile",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "description": "zmail Android App (Capacitor shell wrapping the web build)",
+  "type": "module",
+  "scripts": {
+    "sync": "cap sync android",
+    "add:android": "cap add android",
+    "open:android": "cap open android",
+    "build:web": "node ../../packages/web/node_modules/vite/bin/vite.js build --config ../../packages/web/vite.config.ts",
+    "build:apk": "npm run build:web && npm run sync && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/core": "^7.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

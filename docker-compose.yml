@@ -1,0 +1,40 @@
+services:
+  app:
+    build: .
+    image: zmail:latest
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATA_DIR: /data
+      # 对外公开地址（OAuth 回调基于它拼接）
+      ZMAIL_PUBLIC_BASE_URL: ${ZMAIL_PUBLIC_BASE_URL:-https://mail.example.com}
+      # API Token（不设则首次启动自动生成，见设置页）
+      ZMAIL_API_TOKEN: ${ZMAIL_API_TOKEN:-}
+      ZMAIL_MASTER_KEY: ${ZMAIL_MASTER_KEY:-}
+      # Gmail OAuth（Google Cloud 创建）
+      GMAIL_OAUTH_CLIENT_ID: ${GMAIL_OAUTH_CLIENT_ID:-}
+      GMAIL_OAUTH_CLIENT_SECRET: ${GMAIL_OAUTH_CLIENT_SECRET:-}
+      # Outlook OAuth（Microsoft Entra 注册）
+      OUTLOOK_OAUTH_CLIENT_ID: ${OUTLOOK_OAUTH_CLIENT_ID:-}
+      OUTLOOK_OAUTH_CLIENT_SECRET: ${OUTLOOK_OAUTH_CLIENT_SECRET:-}
+    volumes:
+      - ./data:/data
+    expose:
+      - "3000"
+
+  # TLS 入口：有证书自动 HTTPS，无证书自动 HTTP（保证 compose up 即可访问）
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/entrypoint.sh:/nginx-entrypoint.sh:ro
+      - ./nginx/nginx.http.conf:/nginx-conf/http.conf:ro
+      - ./nginx/nginx.https.conf:/nginx-conf/https.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    entrypoint: ["/bin/sh", "/nginx-entrypoint.sh"]
+    depends_on:
+      - app

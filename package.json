@@ -1,0 +1,16 @@
+{
+  "name": "zmail",
+  "private": true,
+  "license": "MIT",
+  "version": "0.1.0",
+  "description": "Self-hosted web email client with MCP support (IMAP/SMTP: 163/QQ/Gmail/Outlook)",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm --filter @zmail/api build && pnpm --filter @zmail/web build",
+    "start": "pnpm --filter @zmail/api start"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

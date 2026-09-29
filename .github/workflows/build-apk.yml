@@ -1,0 +1,48 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build web frontend
+        working-directory: packages/web
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Install mobile deps
+        working-directory: apps/mobile
+        run: npm ci --no-audit --no-fund
+
+      - name: Sync Capacitor (copy web dist into android)
+        working-directory: apps/mobile
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: zmail-android-apk
+          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk

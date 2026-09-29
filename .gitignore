@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.npm-cache/
+/package-lock.json
+data/
+*.log
+.env
+.DS_Store
+.pnpm-store/
+.docker/
+.rt-test/
+certs/
+.build/
+release/

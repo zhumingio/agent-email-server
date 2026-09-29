@@ -1,0 +1,14 @@
+node_modules
+.pnpm-store
+.npm-cache
+data
+data-test
+.rt-test
+dist
+*.log
+.git
+.gitignore
+README.md
+certs
+apps
+.github

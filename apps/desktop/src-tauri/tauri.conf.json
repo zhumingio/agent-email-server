@@ -1,0 +1,49 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "zmail",
+  "version": "0.1.0",
+  "identifier": "com.example.zmail",
+  "build": {
+    "beforeDevCommand": "",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "",
+    "frontendDist": "../../../packages/web/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "zmail 邮箱客户端",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 940,
+        "minHeight": 620,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "msi",
+      "nsis"
+    ],
+    "category": "Productivity",
+    "shortDescription": "zmail 邮箱客户端",
+    "longDescription": "自托管 Web 邮箱客户端（国内邮箱 / Gmail / Outlook），App 直连你的服务器。",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  }
+}
