@@ -6,7 +6,7 @@
   "description": "zmail Windows App (Tauri shell wrapping the web build, same UI as web)",
   "scripts": {
     "tauri": "tauri",
-    "build:web": "node ../../packages/web/node_modules/vite/bin/vite.js build --config ../../packages/web/vite.config.ts",
+    "build:web": "node ../../packages/web/node_modules/vite/bin/vite.js build ../../packages/web --config ../../packages/web/vite.config.ts",
     "build": "npm run build:web && tauri build"
   },
   "devDependencies": {
