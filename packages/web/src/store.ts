@@ -48,7 +48,9 @@ export const useApp = create<AppState>((set, get) => ({
 
   refreshAccounts: async () => {
     try {
-      const accounts = await api.listAccounts();
+      const raw = await api.listAccounts();
+      // 防御：服务端异常/网关错误页面可能返回非数组，导致 accounts.find 崩溃
+      const accounts = Array.isArray(raw) ? raw : [];
       set({ accounts });
       const st = get();
       const active = st.selectedAccountId && accounts.some((a) => a.id === st.selectedAccountId)

@@ -44,7 +44,9 @@ export default function MainLayout() {
     open: false, mode: 'new', original: null,
   });
 
-  const account = useMemo(() => accounts.find((a) => a.id === accountId), [accounts, accountId]);
+  // 防御：accounts 可能尚未加载/请求失败为 undefined，兜底空数组
+  const accountsSafe = Array.isArray(accounts) ? accounts : [];
+  const account = useMemo(() => accountsSafe.find((a) => a.id === accountId), [accountsSafe, accountId]);
   // 兜底 || []：自动选中账户时 mailboxesByAccount[id] 可能尚未加载，避免 undefined.filter 白屏
   const mailboxes = useMemo(() => (accountId ? (mailboxesByAccount[accountId] || []) : []), [accountId, mailboxesByAccount]);
 
