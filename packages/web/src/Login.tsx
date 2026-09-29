@@ -111,10 +111,15 @@ export default function Login() {
           <Form.Item
             name="server"
             label={<Space size={4}><CloudServerOutlined />服务器地址</Space>}
-            extra="留空则连接当前页面所在的服务器（App 中需填，如 https://mail.example.com）"
+            extra={
+  <>
+    浏览器访问时<strong>留空即可</strong>（自动使用当前页面地址）；仅 App / 跨端连接才需要填写，如{' '}
+    <code>https://mail.example.com:22345</code>
+  </>
+}
           >
             <Input
-              placeholder="https://mail.example.com"
+              placeholder="留空 = 使用当前页面地址（浏览器） / https://mail.example.com:22345（App）"
               size="large"
               addonAfter={
                 <Button
