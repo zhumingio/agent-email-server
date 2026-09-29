@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  App, Alert, Button, Card, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Table, Tabs, Tag, Typography,
+  App, Alert, Button, Card, Col, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Switch, Table, Tabs, Tag, Typography,
 } from 'antd';
 import {
   ArrowLeftOutlined, CheckCircleOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, SafetyOutlined,
@@ -314,23 +314,47 @@ export default function SettingsPage() {
             </Form.Item>
           </Space>
 
-          <Typography.Text type="secondary">IMAP（接收）</Typography.Text>
-          <Space size={12} wrap>
-            <Form.Item name="imapHost" label="IMAP 服务器" rules={[{ required: true }]}>
-              <Input style={{ width: 220 }} />
-            </Form.Item>
-            <Form.Item name="imapPort" label="端口"><InputNumber /></Form.Item>
-            <Form.Item name="imapSecure" label="SSL"><Switch size="small" /></Form.Item>
-          </Space>
+          <Typography.Text type="secondary" style={{ display: 'block', margin: '4px 0 12px' }}>
+            IMAP（接收）
+          </Typography.Text>
+          <Row gutter={12}>
+            <Col flex="auto">
+              <Form.Item name="imapHost" label="IMAP 服务器" rules={[{ required: true, message: '必填' }]}>
+                <Input placeholder="imap.example.com" />
+              </Form.Item>
+            </Col>
+            <Col flex="120px">
+              <Form.Item name="imapPort" label="端口" rules={[{ required: true, message: '必填' }]}>
+                <InputNumber style={{ width: '100%' }} min={1} max={65535} />
+              </Form.Item>
+            </Col>
+            <Col flex="88px">
+              <Form.Item name="imapSecure" label="SSL" valuePropName="checked">
+                <Switch size="small" />
+              </Form.Item>
+            </Col>
+          </Row>
 
-          <Typography.Text type="secondary">SMTP（发送）</Typography.Text>
-          <Space size={12} wrap>
-            <Form.Item name="smtpHost" label="SMTP 服务器" rules={[{ required: true }]}>
-              <Input style={{ width: 220 }} />
-            </Form.Item>
-            <Form.Item name="smtpPort" label="端口"><InputNumber /></Form.Item>
-            <Form.Item name="smtpSecure" label="SSL"><Switch size="small" /></Form.Item>
-          </Space>
+          <Typography.Text type="secondary" style={{ display: 'block', margin: '4px 0 12px' }}>
+            SMTP（发送）
+          </Typography.Text>
+          <Row gutter={12}>
+            <Col flex="auto">
+              <Form.Item name="smtpHost" label="SMTP 服务器" rules={[{ required: true, message: '必填' }]}>
+                <Input placeholder="smtp.example.com" />
+              </Form.Item>
+            </Col>
+            <Col flex="120px">
+              <Form.Item name="smtpPort" label="端口" rules={[{ required: true, message: '必填' }]}>
+                <InputNumber style={{ width: '100%' }} min={1} max={65535} />
+              </Form.Item>
+            </Col>
+            <Col flex="88px">
+              <Form.Item name="smtpSecure" label="SSL" valuePropName="checked">
+                <Switch size="small" />
+              </Form.Item>
+            </Col>
+          </Row>
 
           <Form.Item name="password" label={editing ? '授权码/密码（留空则不修改）' : '授权码/应用专用密码（国内邮箱在网页端开启 IMAP/SMTP 获取）'}>
             <Input.Password placeholder="OAuth2 账户无需填写，用「连接授权」按钮" />
