@@ -73,11 +73,52 @@ npm run build               # 产出 src-tauri/target/release/bundle/{msi,nsis}
 cp .env.example .env
 # 编辑 .env：
 #   ZMAIL_PUBLIC_BASE_URL=https://mail.example.com
-#   ZMAIL_API_TOKEN=<你的访问令牌>            # 不设则首次启动自动生成
+#   ZMAIL_API_TOKEN=<你的访问令牌>            # 不设则首次启动自动生成；生成方法见下文
 #   ZMAIL_MASTER_KEY=<随机长字符串>           # 加密凭据用，务必设置并备份
 #   GMAIL_OAUTH_CLIENT_ID / GMAIL_OAUTH_CLIENT_SECRET
 #   OUTLOOK_OAUTH_CLIENT_ID / OUTLOOK_OAUTH_CLIENT_SECRET
 ```
+
+#### API Token 的生成与获取
+
+ZMAIL_API_TOKEN 是 Web 登录、App、MCP 三端共用的主访问令牌，生成方式如下（按优先级）：
+
+1. **自行生成**（推荐，部署前在 .env 中设置）。用任意方式生成一串强随机值即可，例如：
+
+   ```bash
+   # 方法一：openssl（96 位十六进制，与自动生成格式一致）
+   openssl rand -hex 48
+
+   # 方法二：Linux /dev/urandom（48 字节 = 96 个十六进制字符）
+   head -c 48 /dev/urandom | od -An -tx1 | tr -d ' \n'; echo
+
+   # 方法三：Node（需要已安装 Node）
+   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+   ```
+
+   把输出填入 .env：
+
+   ```bash
+   ZMAIL_API_TOKEN=上一步生成的96位十六进制字符串
+   ```
+
+2. **不设置则首次启动自动生成**：启动时若 `ZMAIL_API_TOKEN` 为空，服务会自动生成 **96 位十六进制** token 并持久化到数据目录的 `api_token.secret` 文件（权限 600，`docker compose down` 不会丢失）。取回方式：
+
+   ```bash
+   # 宿主机直接读取（注意：容器以 root 写入，文件属主可能是 nobody）
+   cat ./data/api_token.secret
+
+   # 或从容器的数据目录读取（最可靠）
+   docker exec zmail-app-1 cat /data/api_token.secret
+
+   # 或查看启动日志（只显示首尾几位，用于核对）
+   docker logs zmail-app-1 2>&1 | grep "API Token"
+   ```
+
+3. **登录后重新生成**：登录 Web 后进入「设置 → 安全 → 重新生成 API Token」，会立即用新 token 覆盖 `api_token.secret`，旧 token 即刻失效（App/MCP 需同步更新）。
+   > 注意：若你是通过环境变量 `ZMAIL_API_TOKEN` 指定的 token，设置页会提示「由环境变量指定」，此操作不可用——需直接改 `.env` 并重启容器。
+
+> ⚠️ Token 是主密钥：Web / App / MCP 共用同一个值，请妥善保管，不要泄露或提交到仓库（`.env` 已在 `.gitignore` 中）。
 
 ### 2. 证书（可选，默认自动降级 HTTP）
 
