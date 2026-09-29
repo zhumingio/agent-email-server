@@ -29,7 +29,7 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
-      - "443:443"
+      - "22345:443"
     volumes:
       - ./nginx/entrypoint.sh:/nginx-entrypoint.sh:ro
       - ./nginx/nginx.http.conf:/nginx-conf/http.conf:ro

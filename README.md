@@ -123,8 +123,10 @@ ZMAIL_API_TOKEN 是 Web 登录、App、MCP 三端共用的主访问令牌，生�
 ### 2. 证书（可选，默认自动降级 HTTP）
 
 - **没放证书也能启动**：nginx 自动用 HTTP（仅 80 端口）代理到 app，`docker compose up` 立即可访问。
-- 部署正式 HTTPS：把 `mail.example.com` 的 `fullchain.pem` / `privkey.pem` 放进 `./certs/`，
+- 部署正式 HTTPS：把你的域名的 `fullchain.pem` / `privkey.pem` 放进 `./certs/`，
   然后 `docker compose up -d --force-recreate nginx` 自动切换为 HTTPS（详见 `certs/README.md`）。
+- **HTTPS 对外端口为 `22345`**（compose 映射 `22345:443`），80 端口 HTTP 自动 301 跳转到 `https://<你的域名>:22345`。
+  访问示例：`https://mail.example.com:22345`；如需改端口，编辑 `docker-compose.yml` 中 nginx 的 ports 映射与 `nginx/nginx.https.conf` 的跳转行。
 - 如果你已有反代/网关，只用 `app` 服务即可（去掉 nginx 服务）。
 
 ### 3. 启动
