@@ -11,6 +11,15 @@ function clientIp(req: { ip?: string; headers: Record<string, any> }): string {
   return req.ip || 'unknown';
 }
 
+/**
+ * Cookie 是否加 Secure：按“本次请求实际协议”判断（nginx 会设置 X-Forwarded-Proto）。
+ * 不能用 publicBaseUrl 推断：内网 HTTP 调试时常仍配置着公网 https 地址，
+ * 那样会种下浏览器在 http 下拒收的 Secure Cookie，导致登录后立刻掉线。
+ */
+function requestIsHttps(req: { protocol?: string }): boolean {
+  return req.protocol === 'https';
+}
+
 export function registerAuthRoutes(app: FastifyInstance) {
   app.post('/api/auth/login', async (req, reply) => {
     const ip = clientIp(req as any);
@@ -34,7 +43,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
     reply.setCookie(sessionCookieName, session, {
       httpOnly: true,
       sameSite: 'lax',
-      secure: getConfig().publicBaseUrl.startsWith('https'),
+      secure: requestIsHttps(req),
       path: '/',
       maxAge: 30 * 24 * 3600,
     });
@@ -65,7 +74,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
     reply.setCookie(sessionCookieName, signSession(), {
       httpOnly: true,
       sameSite: 'lax',
-      secure: getConfig().publicBaseUrl.startsWith('https'),
+      secure: requestIsHttps(req),
       path: '/',
       maxAge: 30 * 24 * 3600,
     });
