@@ -9,7 +9,7 @@ import {
 import { getPreset, providerLabels } from '../mail/presets.js';
 import { buildImapOptions, imapManager } from '../mail/connector.js';
 import { stopWatcher } from '../mail/watcher.js';
-import { exchangeCode, authorizeUrl } from '../oauth/oauth.js';
+import { exchangeCode, authorizeUrl, signOAuthState, verifyOAuthState } from '../oauth/oauth.js';
 import type { Account, AccountView, OAuthProvider } from '../types.js';
 
 function toView(a: Account): AccountView {
@@ -144,7 +144,8 @@ export function registerAccountRoutes(app: FastifyInstance) {
     if (!account) return reply.code(404).send({ error: '账户不存在' });
     const provider = account.oauthProvider as OAuthProvider;
     if (!provider) return reply.code(400).send({ error: '该账户未配置 OAuth 提供商' });
-    const state = `${id}`;
+    // state 必须签名：回调端据此确认请求确实由本服务发起（防伪造回调注入令牌）
+    const state = signOAuthState(id);
     const base = getConfig().publicBaseUrl;
     const redirectUri = `${base}/api/oauth/${provider}/callback`;
     const url = authorizeUrl(provider, state, redirectUri);
@@ -159,25 +160,31 @@ export function registerAccountRoutes(app: FastifyInstance) {
     const { code, state, error } = q;
     const base = getConfig().publicBaseUrl;
     const redirectUri = `${base}/api/oauth/${provider}/callback`;
-    const failUrl = `${base}/#/settings?oauth=error&account=${state || ''}`;
+    // state 带签名且 10 分钟过期；校验失败一律拒绝，不当成“无账户”静默处理
+    const accountId = verifyOAuthState(state);
+    const failUrl = `${base}/#/settings?oauth=error&account=${accountId || ''}`;
     if (error || !code) {
       return reply.redirect(failUrl);
     }
+    if (!accountId) {
+      return reply.redirect(`${failUrl}&reason=${encodeURIComponent('state 校验失败或已过期，请重新发起授权')}`);
+    }
+    const account = getAccount(accountId);
+    if (!account || account.oauthProvider !== provider) {
+      return reply.redirect(`${failUrl}&reason=${encodeURIComponent('账户不存在或 OAuth 提供商不匹配')}`);
+    }
     try {
       const tokens = await exchangeCode(provider, code, redirectUri);
-      if (state) {
-        setOAuthTokens(state, {
-          refreshToken: tokens.refreshToken,
-          accessToken: tokens.accessToken,
-          expiresAt: Date.now() + tokens.expiresIn * 1000,
-        });
-        const acc = getAccount(state);
-        if (acc && !acc.enabled) updateAccount(state, { enabled: true });
-        await imapManager.drop(state);
-      }
-      return reply.redirect(`${base}/#/settings?oauth=success&account=${state || ''}`);
+      setOAuthTokens(accountId, {
+        refreshToken: tokens.refreshToken,
+        accessToken: tokens.accessToken,
+        expiresAt: Date.now() + tokens.expiresIn * 1000,
+      });
+      if (!account.enabled) updateAccount(accountId, { enabled: true });
+      await imapManager.drop(accountId);
+      return reply.redirect(`${base}/#/settings?oauth=success&account=${accountId}`);
     } catch (e) {
-      return reply.redirect(`${base}/#/settings?oauth=error&account=${state || ''}&reason=${encodeURIComponent((e as Error).message)}`);
+      return reply.redirect(`${base}/#/settings?oauth=error&account=${accountId}&reason=${encodeURIComponent((e as Error).message)}`);
     }
   });
 

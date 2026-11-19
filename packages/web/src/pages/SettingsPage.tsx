@@ -246,13 +246,13 @@ export default function SettingsPage() {
                         {settings?.apiTokenFromEnv ? '由环境变量 ZMAIL_API_TOKEN 指定' : '自动生成并持久化'}
                       </Typography.Text>
                     </Space>
-                    {settings?.apiToken ? (
-                      <Typography.Text code copyable style={{ wordBreak: 'break-all' }}>
-                        {settings.apiToken}
-                      </Typography.Text>
-                    ) : (
-                      <Typography.Text type="secondary">（未生成）</Typography.Text>
-                    )}
+                    <Typography.Text code style={{ wordBreak: 'break-all' }}>
+                      {settings?.apiTokenMasked || '（未生成）'}
+                    </Typography.Text>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      出于安全考虑，页面只显示掩码。完整 Token 请从部署环境变量 ZMAIL_API_TOKEN
+                      或数据目录的 <code>data/api_token.secret</code> 获取；遗忘时可点下方“重新生成”。
+                    </Typography.Text>
                   </Space>
                 </Descriptions.Item>
               </Descriptions>

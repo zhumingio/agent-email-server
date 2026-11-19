@@ -108,8 +108,7 @@ export interface MessageDetail {
   inReplyTo?: string;
   references?: string[];
   text?: string;
-  html?: string;
-  /** 净化后的 HTML，用于 Web 渲染 */
+  /** 净化后的 HTML（原始 HTML 不再下发，避免误渲染导致 XSS） */
   htmlSafe?: string;
   preview?: string;
   attachments: AttachmentInfo[];

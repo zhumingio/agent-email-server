@@ -7,11 +7,13 @@ services:
       HOST: 0.0.0.0
       PORT: 3000
       DATA_DIR: /data
-      # 对外公开地址（OAuth 回调基于它拼接）
+      # 对外公开地址（OAuth 回调基于它拼接；必须与浏览器实际访问地址一致，含非标准端口）
       ZMAIL_PUBLIC_BASE_URL: ${ZMAIL_PUBLIC_BASE_URL:-https://mail.example.com}
-      # API Token（不设则首次启动自动生成，见设置页）
+      # API Token（不设则首次启动自动生成，见 data/api_token.secret）
       ZMAIL_API_TOKEN: ${ZMAIL_API_TOKEN:-}
       ZMAIL_MASTER_KEY: ${ZMAIL_MASTER_KEY:-}
+      # 跨域白名单（逗号分隔，精确匹配；App 默认来源已内置，如需额外来源在此追加）
+      ZMAIL_ALLOWED_ORIGINS: ${ZMAIL_ALLOWED_ORIGINS:-}
       # Gmail OAuth（Google Cloud 创建）
       GMAIL_OAUTH_CLIENT_ID: ${GMAIL_OAUTH_CLIENT_ID:-}
       GMAIL_OAUTH_CLIENT_SECRET: ${GMAIL_OAUTH_CLIENT_SECRET:-}
@@ -22,11 +24,21 @@ services:
       - ./data:/data
     expose:
       - "3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   # TLS 入口：有证书自动 HTTPS，无证书自动 HTTP（保证 compose up 即可访问）
   nginx:
     image: nginx:alpine
     restart: unless-stopped
+    environment:
+      # 证书域名 / HTTPS 对外端口（entrypoint 用 envsubst 注入配置）
+      ZMAIL_DOMAIN: ${ZMAIL_DOMAIN:-mail.example.com}
+      ZMAIL_HTTPS_PORT: ${ZMAIL_HTTPS_PORT:-22345}
     ports:
       - "80:80"
       - "22345:443"
@@ -34,7 +46,40 @@ services:
       - ./nginx/entrypoint.sh:/nginx-entrypoint.sh:ro
       - ./nginx/nginx.http.conf:/nginx-conf/http.conf:ro
       - ./nginx/nginx.https.conf:/nginx-conf/https.conf:ro
-      - ./certs:/etc/nginx/certs:ro
+      - ./certs:/etc/nginx/certs
+      - ./data/acme-webroot:/var/www/certbot
     entrypoint: ["/bin/sh", "/nginx-entrypoint.sh"]
     depends_on:
-      - app
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 80 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # 可选：证书自动续期（docker compose --profile acme up -d certbot）
+  # 首次签发先用 ./scripts/issue-cert.sh；此服务只负责 renew + 同步证书给 nginx。
+  certbot:
+    image: certbot/certbot:latest
+    profiles: ["acme"]
+    restart: unless-stopped
+    environment:
+      ZMAIL_DOMAIN: ${ZMAIL_DOMAIN:-mail.example.com}
+    volumes:
+      - ./certs:/etc/letsencrypt
+      - ./data/acme-webroot:/var/www/certbot
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        trap 'exit 0' TERM
+        while :; do
+          certbot renew --webroot -w /var/www/certbot --quiet || true
+          if [ -s "/etc/letsencrypt/live/$$ZMAIL_DOMAIN/fullchain.pem" ]; then
+            cp -f "/etc/letsencrypt/live/$$ZMAIL_DOMAIN/fullchain.pem" /etc/letsencrypt/fullchain.pem
+            cp -f "/etc/letsencrypt/live/$$ZMAIL_DOMAIN/privkey.pem" /etc/letsencrypt/privkey.pem
+          fi
+          sleep 12h & wait $${!}
+        done

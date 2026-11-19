@@ -13,6 +13,12 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(ba, bb);
 }
 
+/** 常量时间比较（用于所有 Token / 签名校验，避免时序侧信道） */
+export function timingSafeEqualString(a: string | undefined | null, b: string | undefined | null): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length === 0) return false;
+  return safeEqual(a, b);
+}
+
 export function signSession(): string {
   const payload = Buffer.from(JSON.stringify({ exp: Date.now() + TTL_MS })).toString('base64url');
   const sig = createHmac('sha256', getConfig().masterKey).update(payload).digest('base64url');

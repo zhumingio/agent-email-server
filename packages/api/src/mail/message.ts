@@ -88,7 +88,7 @@ export async function fetchMessage(accountId: string, mailbox: string, uid: numb
       inReplyTo: parsed.inReplyTo,
       references: Array.isArray(parsed.references) ? parsed.references : (parsed.references ? [parsed.references] : []),
       text: parsed.text || undefined,
-      html: parsed.html || undefined,
+      // 只回传净化后的 HTML：原始 html 不返回，避免任何客户端误渲染造成 XSS
       htmlSafe,
       preview: decodeSnippet(Buffer.from(parsed.text || '')),
       attachments,

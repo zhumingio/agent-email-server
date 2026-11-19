@@ -13,6 +13,10 @@ export interface AppConfig {
   dataDir: string;
   dbPath: string;
   publicBaseUrl: string;
+  /** publicBaseUrl 的 origin（用于 CORS 同源判定），解析失败时为空串 */
+  publicOrigin: string;
+  /** 允许跨域访问的来源白名单；支持精确匹配与 `*` */
+  allowedOrigins: string[];
   apiToken: string;
   masterKey: Buffer;
   gmailClientId: string;
@@ -21,6 +25,17 @@ export interface AppConfig {
   outlookClientSecret: string;
   webDist: string;
 }
+
+/** App（Tauri / Capacitor / 本地 WebView）默认来源；可用 ZMAIL_ALLOWED_ORIGINS 覆盖 */
+const DEFAULT_ALLOWED_ORIGINS = [
+  'tauri://localhost',
+  'https://tauri.localhost',
+  'http://tauri.localhost',
+  'capacitor://localhost',
+  'ionic://localhost',
+  'http://localhost',
+  'https://localhost',
+];
 
 let cached: AppConfig | null = null;
 
@@ -41,12 +56,25 @@ export function getConfig(): AppConfig {
   const dataDir = envStr('DATA_DIR', path.resolve(process.cwd(), 'data'));
   const apiToken = envStr('ZMAIL_API_TOKEN') || ensureSecret('api_token', dataDir);
   const masterKeyHex = envStr('ZMAIL_MASTER_KEY') || ensureSecret('master_key', dataDir);
+  const publicBaseUrl = envStr('ZMAIL_PUBLIC_BASE_URL', 'http://localhost:3000').replace(/\/+$/, '');
+  let publicOrigin = '';
+  try {
+    publicOrigin = new URL(publicBaseUrl).origin;
+  } catch {
+    publicOrigin = '';
+  }
+  const allowedOrigins = envStr('ZMAIL_ALLOWED_ORIGINS', DEFAULT_ALLOWED_ORIGINS.join(','))
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   cached = {
     host: envStr('HOST', '0.0.0.0'),
     port: parseInt(envStr('PORT', '3000'), 10),
     dataDir,
     dbPath: path.join(dataDir, 'zmail.db'),
-    publicBaseUrl: envStr('ZMAIL_PUBLIC_BASE_URL', 'http://localhost:3000').replace(/\/+$/, ''),
+    publicBaseUrl,
+    publicOrigin,
+    allowedOrigins,
     apiToken,
     masterKey: crypto.createHash('sha256').update(masterKeyHex).digest(),
     gmailClientId: envStr('GMAIL_OAUTH_CLIENT_ID'),

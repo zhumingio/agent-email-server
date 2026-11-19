@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { getConfig } from '../config.js';
 import { getAppSetting, setOAuthTokens, getOAuthTokens } from '../db/store.js';
 import type { Account, OAuthProvider } from '../types.js';
@@ -25,6 +26,37 @@ export function isOAuthConfigured(provider: OAuthProvider): boolean {
 
 const GMAIL_SCOPE = 'https://mail.google.com/';
 const MS_SCOPE = 'offline_access IMAP.AccessAsUser.All SMTP.Send User.Read';
+
+/** OAuth state 有效期（防重放） */
+const OAUTH_STATE_TTL_MS = 10 * 60_000;
+
+/**
+ * 生成带 HMAC 签名的 OAuth state。
+ * 原实现直接把 accountId 当 state，回调端未校验来源，可被伪造回调注入令牌；签名后可防篡改。
+ */
+export function signOAuthState(accountId: string): string {
+  const payload = Buffer.from(JSON.stringify({ a: accountId, exp: Date.now() + OAUTH_STATE_TTL_MS })).toString('base64url');
+  const sig = crypto.createHmac('sha256', getConfig().masterKey).update(`oauth-state:${payload}`).digest('base64url');
+  return `${payload}.${sig}`;
+}
+
+/** 校验 OAuth state，返回其中的 accountId；非法/过期返回 null */
+export function verifyOAuthState(state: unknown): string | null {
+  if (typeof state !== 'string' || state.length > 1024) return null;
+  const [payload, sig] = state.split('.');
+  if (!payload || !sig) return null;
+  const expected = crypto.createHmac('sha256', getConfig().masterKey).update(`oauth-state:${payload}`).digest('base64url');
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (typeof data?.a !== 'string' || typeof data?.exp !== 'number' || data.exp < Date.now()) return null;
+    return data.a;
+  } catch {
+    return null;
+  }
+}
 
 export function authorizeUrl(provider: OAuthProvider, state: string, redirectUri: string): string | null {
   const cfg = getOAuthConfig(provider);

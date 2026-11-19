@@ -2,6 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import type { ServerResponse } from 'node:http';
 import { mailEvents } from '../mail/connector.js';
 
+/** 单实例 SSE 连接上限，防止异常客户端占满内存/句柄 */
+const MAX_SSE_CLIENTS = 64;
+
 interface SseClient {
   res: ServerResponse;
   send(event: string, data: unknown): void;
@@ -27,6 +30,9 @@ export function startSseListeners() {
 
 export function registerStreamRoutes(app: FastifyInstance) {
   app.get('/api/stream', async (req, reply) => {
+    if (clients.size >= MAX_SSE_CLIENTS) {
+      return reply.code(503).send({ error: '实时推送连接数已达上限，请稍后重试' });
+    }
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',
@@ -43,9 +49,6 @@ export function registerStreamRoutes(app: FastifyInstance) {
     };
     clients.add(client);
 
-    req.raw.on('close', () => {
-      clients.delete(client);
-    });
     // 心跳，避免代理断连
     const heartbeat = setInterval(() => {
       try {
@@ -55,7 +58,14 @@ export function registerStreamRoutes(app: FastifyInstance) {
         clients.delete(client);
       }
     }, 25_000);
-    req.raw.on('close', () => clearInterval(heartbeat));
+
+    const cleanup = () => {
+      clearInterval(heartbeat);
+      clients.delete(client);
+    };
+    req.raw.on('close', cleanup);
+    req.raw.on('error', cleanup);
+    reply.raw.on('close', cleanup);
 
     return reply;
   });

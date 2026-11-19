@@ -12,3 +12,10 @@ data/
 certs/
 .build/
 release/
+
+# 本地凭据与临时文件（切勿提交）
+passwd
+*.secret
+*.pem
+*.key
+.rt-*

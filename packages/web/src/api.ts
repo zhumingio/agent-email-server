@@ -18,6 +18,18 @@ export function setServerBase(url: string): void {
   api.defaults.baseURL = clean ? `${clean}/api` : '/api';
 }
 
+/** 当前页面 origin（用于判断“同源 Web”还是 App 跨域直连） */
+function currentOrigin(): string {
+  try { return window.location.origin; } catch { return ''; }
+}
+
+/** 是否配置了与当前页面不同源的服务器地址（App / 跨端场景） */
+export function isCrossOriginServer(): boolean {
+  const base = getServerBase();
+  if (!base) return false;
+  try { return new URL(base).origin !== currentOrigin(); } catch { return true; }
+}
+
 export function getStoredToken(): string {
   return localStorage.getItem(LS_TOKEN) || '';
 }
@@ -46,14 +58,12 @@ api.interceptors.response.use(
   }
 );
 
-/** SSE 推送地址：同源用 Cookie，跨源用 token 参数（App WebView 场景） */
+/** SSE 推送地址：同源用 httpOnly Cookie；跨源 App 用 token 参数（EventSource 无法设置请求头） */
 export function streamUrl(): string {
+  if (!isCrossOriginServer()) return '/api/stream';
   const base = getServerBase();
   const token = getStoredToken();
-  if (base) {
-    return `${base}/api/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`;
-  }
-  return '/api/stream';
+  return `${base}/api/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`;
 }
 
 function errMsg(e: any): string {
@@ -62,13 +72,17 @@ function errMsg(e: any): string {
 
 export async function login(token: string): Promise<void> {
   const t = token.trim();
-  // 1) 存本地，后续请求走 Bearer（App 跨域场景依赖此路径）
-  setStoredToken(t);
-  // 2) 同源 Web 额外种下 httpOnly Cookie 会话
+  const crossOrigin = isCrossOriginServer();
+  // 跨源 App（Tauri / Capacitor / 独立 PWA）只能靠 Bearer，Token 存 localStorage；
+  // 同源 Web 走 httpOnly Cookie 会话，Token 不落盘，降低 XSS 直接盗取长期凭据的风险。
+  if (crossOrigin) setStoredToken(t);
+  else setStoredToken('');
   try {
     await api.post('/auth/login', { token: t });
-  } catch {
-    // 跨域下 Cookie 可能失败，但 Bearer 已就绪，仍视为登录成功
+  } catch (e) {
+    if (crossOrigin) return; // 跨域下 Cookie 可能被浏览器策略拦截，但 Bearer 已就绪
+    setStoredToken('');
+    throw e;
   }
 }
 export async function logout(): Promise<void> {

@@ -75,6 +75,8 @@ cp .env.example .env
 #   ZMAIL_PUBLIC_BASE_URL=https://mail.example.com
 #   ZMAIL_API_TOKEN=<你的访问令牌>            # 不设则首次启动自动生成；生成方法见下文
 #   ZMAIL_MASTER_KEY=<随机长字符串>           # 加密凭据用，务必设置并备份
+#   ZMAIL_DOMAIN / ZMAIL_HTTPS_PORT（证书域名、HTTPS 端口）
+#   ZMAIL_ALLOWED_ORIGINS（跨域白名单，可选）
 #   GMAIL_OAUTH_CLIENT_ID / GMAIL_OAUTH_CLIENT_SECRET
 #   OUTLOOK_OAUTH_CLIENT_ID / OUTLOOK_OAUTH_CLIENT_SECRET
 ```
@@ -111,11 +113,13 @@ ZMAIL_API_TOKEN 是 Web 登录、App、MCP 三端共用的主访问令牌，生�
    # 或从容器的数据目录读取（最可靠）
    docker exec zmail-app-1 cat /data/api_token.secret
 
-   # 或查看启动日志（只显示首尾几位，用于核对）
-   docker logs zmail-app-1 2>&1 | grep "API Token"
+   # 或登录 Web 后在「设置 → 安全」查看掩码（出于安全考虑只显示首尾各 4 位）
    ```
 
-3. **登录后重新生成**：登录 Web 后进入「设置 → 安全 → 重新生成 API Token」，会立即用新 token 覆盖 `api_token.secret`，旧 token 即刻失效（App/MCP 需同步更新）。
+   > 安全变更（v0.1.1 起）：`GET /api/settings` **不再回传完整 Token**，设置页只显示掩码。
+   > 需要完整 Token 时请从 `ZMAIL_API_TOKEN` 环境变量或 `data/api_token.secret` 获取。
+
+3. **登录后重新生成**：登录 Web 后进入「设置 → 安全 → 重新生成 API Token」，会立即用新 token 覆盖 `api_token.secret`，旧 token 即刻失效（App/MCP 需同步更新）。新 Token 只在生成成功的弹窗中显示一次，请立即保存。
    > 注意：若你是通过环境变量 `ZMAIL_API_TOKEN` 指定的 token，设置页会提示「由环境变量指定」，此操作不可用——需直接改 `.env` 并重启容器。
 
 > ⚠️ Token 是主密钥：Web / App / MCP 共用同一个值，请妥善保管，不要泄露或提交到仓库（`.env` 已在 `.gitignore` 中）。
@@ -123,11 +127,22 @@ ZMAIL_API_TOKEN 是 Web 登录、App、MCP 三端共用的主访问令牌，生�
 ### 2. 证书（可选，默认自动降级 HTTP）
 
 - **没放证书也能启动**：nginx 自动用 HTTP（仅 80 端口）代理到 app，`docker compose up` 立即可访问。
-- 部署正式 HTTPS：把你的域名的 `fullchain.pem` / `privkey.pem` 放进 `./certs/`，
-  然后 `docker compose up -d --force-recreate nginx` 自动切换为 HTTPS（详见 `certs/README.md`）。
-- **HTTPS 对外端口为 `22345`**（compose 映射 `22345:443`），80 端口 HTTP 自动 301 跳转到 `https://<你的域名>:22345`。
-  访问示例：`https://mail.example.com:22345`；如需改端口，编辑 `docker-compose.yml` 中 nginx 的 ports 映射与 `nginx/nginx.https.conf` 的跳转行。
-- 如果你已有反代/网关，只用 `app` 服务即可（去掉 nginx 服务）。
+- **HTTPS 对外端口为 `22345`**（compose 映射 `22345:443`），80 端口负责 ACME 校验并 301 跳转到 `https://<域名>:22345`。
+- 三种证书用法（详见 `certs/README.md`）：
+  - 自动签发/续期（需公网 80 可达）：`./scripts/issue-cert.sh <域名> <邮箱>` + `docker compose --profile acme up -d certbot`
+  - 自签名（内网兜底）：`./scripts/gen-selfsigned.sh <域名> IP:<内网IP>`
+  - 已有反代/网关：把流量直接代理到 `app:3000`，可停用本仓库的 nginx 服务
+- `.env` 里需要同步设置：`ZMAIL_DOMAIN`、`ZMAIL_HTTPS_PORT`、`ZMAIL_PUBLIC_BASE_URL`（必须与浏览器地址一致，含端口）。
+- 证书更新后 nginx 会在 5 分钟内自动检测并 reload（`docker compose logs nginx` 可见 `证书已更新，reload`）。
+
+#### 安全加固（v0.1.1）
+
+- nginx：`server_tokens off`、HSTS、CSP、X-Frame-Options DENY、nosniff、Referrer-Policy、Permissions-Policy、gzip、静态资源长缓存；
+  `:80` 跳转使用固定域名，规避 Host 头注入开放重定向；访问日志不记录查询串（避免 SSE Token 落日志）。
+- 应用：登录失败限流（同 IP 5 分钟 10 次）、Token 常量时间比较、CORS 白名单（`ZMAIL_ALLOWED_ORIGINS`）、
+  `/api/settings` 只返回 Token 掩码、邮件详情不再下发原始 HTML、附件危险类型强制下载、
+  OAuth `state` 加 HMAC 签名、MCP 会话空闲回收、SSE 连接数上限。
+- 前端：同源 Web 登录改用 httpOnly Cookie 会话，Token 不再写 localStorage（降低 XSS 盗取长期凭据风险）。
 
 ### 3. 启动
 

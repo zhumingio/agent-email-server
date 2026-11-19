@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { listAccounts } from '../db/store.js';
@@ -7,6 +8,12 @@ import { listMessages } from '../mail/list.js';
 import { fetchMessage, fetchAttachment } from '../mail/message.js';
 import { sendMessage, buildReplyInput, buildForwardInput, saveDraft } from '../mail/send.js';
 import { markSeen, markFlagged, moveToMailbox, trashMessages, getInboxStatus } from '../mail/actions.js';
+
+const require = createRequire(import.meta.url);
+let pkgVersion = '0.1.1';
+try {
+  pkgVersion = require('../../package.json').version;
+} catch { /* ignore */ }
 
 function resolveAccount(ref: string): Account {
   const accounts = listAccounts();
@@ -26,7 +33,7 @@ function err(message: string) {
 export function createMcpServer(): McpServer {
   const server = new McpServer({
     name: 'zmail',
-    version: '0.1.0',
+    version: pkgVersion,
   });
 
   server.tool(

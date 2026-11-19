@@ -79,7 +79,7 @@ export interface MessageDetail {
   inReplyTo?: string;
   references?: string[];
   text?: string;
-  html?: string;
+  /** 净化后的 HTML（原始 HTML 不再下发，避免误渲染导致 XSS） */
   htmlSafe?: string;
   preview?: string;
   attachments: AttachmentInfo[];
@@ -107,7 +107,8 @@ export interface SettingsInfo {
   publicBaseUrl: string;
   apiTokenConfigured: boolean;
   apiTokenFromEnv: boolean;
-  apiToken: string;
+  /** 仅掩码（如 6772…afbc），完整 Token 不再通过 API 下发 */
+  apiTokenMasked: string;
   gmailOAuth: { configured: boolean; clientId: string };
   outlookOAuth: { configured: boolean; clientId: string };
 }
